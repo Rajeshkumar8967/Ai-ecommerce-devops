@@ -1,0 +1,9 @@
+.git
+.gitignore
+.github
+scripts
+logs
+README.md
+README.txt
+*.log
+*.tmp
