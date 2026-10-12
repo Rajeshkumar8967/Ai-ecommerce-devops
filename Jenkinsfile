@@ -138,6 +138,38 @@ pipeline {
                 '''
             }
         }
+
+        stage('Deploy Application') {
+            steps {
+                echo 'Deploying NEXVION application'
+
+                bat '''
+                    @echo off
+
+                    docker rm -f nexvion-container-c 2>nul
+                    
+                    docker run -d --name nexvion-container-c -p 8081:80 --restart unless-stopped nexvion-ecommerce:1.0
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo 'Waiting for the application to start'
+
+                bat '''
+                    @echo off
+                    timeout /t 10 /nobreak >nul
+                    docker inspect --format="{{.State.Status}}" nexvion-container-c
+                    if errorlevel 1 exit /b 1
+                    docker inspect --format="{{.State.Health.Status}}" nexvion-container-c
+                    if errorlevel 1 exit /b 1
+                    curl.exe --fail --silent --show-error http://localhost:8081/
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
     }
 
     post {
