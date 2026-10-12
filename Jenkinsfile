@@ -156,16 +156,13 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                echo 'Waiting for the application to start'
+                echo 'Waiting for NEXVION to become healthy'
 
                 bat '''
                     @echo off
-                    timeout /t 10 /nobreak >nul
-                    docker inspect --format="{{.State.Status}}" nexvion-container-c
-                    if errorlevel 1 exit /b 1
-                    docker inspect --format="{{.State.Health.Status}}" nexvion-container-c
-                    if errorlevel 1 exit /b 1
-                    curl.exe --fail --silent --show-error http://localhost:8081/
+
+                    powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; Start-Sleep -Seconds 10; $status = docker inspect --format='{{.State.Status}}' nexvion-container-c; if ($status -ne 'running') { Write-Error 'Container is not running'; exit 1 }; $health = docker inspect --format='{{.State.Health.Status}}' nexvion-container-c; Write-Output ('Container status: ' + $status); Write-Output ('Health status: ' + $health); if ($health -ne 'healthy') { Write-Error 'Container is not healthy'; exit 1 }; $response = Invoke-WebRequest -Uri 'http://localhost:8081/' -UseBasicParsing; Write-Output ('HTTP status: ' + [int]$response.StatusCode); if ([int]$response.StatusCode -ne 200) { exit 1 }"
+
                     if errorlevel 1 exit /b 1
                 '''
             }
