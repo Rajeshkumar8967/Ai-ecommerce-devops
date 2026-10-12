@@ -37,6 +37,25 @@ pipeline {
             }
         }
 
+	stage('Docker Environment Diagnostics') {
+            steps {
+                    bat '''
+                        echo Jenkins Windows identity:
+                        whoami
+
+                        echo Docker executable:
+                        where.exe docker
+
+                        echo Docker environment:
+                        set DOCKER
+
+                        echo Docker CLI version:
+                        docker --version
+                        
+                       '''
+                    }
+               }
+
         stage('Docker Engine Check') {
             steps {
                 echo 'Checking Docker Desktop connectivity'
