@@ -4,12 +4,14 @@ pipeline {
     options {
         skipDefaultCheckout(true)
         timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     environment {
-        IMAGE_NAME = 'nexvion-ecoomerce'
+        IMAGE_NAME = 'nexvion-ecommerce'
         IMAGE_TAG = '1.0'
-        DOCKER_CONTEXT = 'desktop-linux'
+        DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
     }
 
     stages {
@@ -17,74 +19,122 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Checking out NEXVION source code from GitHub'
+
                 checkout scm
             }
         }
 
         stage('Validate Application') {
             steps {
-                echo 'Validating application files'
+                echo 'Validating NEXVION application files'
 
                 bat '''
-                    if not exist index.html exit /b 1
-                    if not exist products.html exit /b 1
-                    if not exist payment.html exit /b 1
-                    if not exist Dockerfile exit /b 1
-                    if not exist compose.yaml exit /b 1
+                    @echo off
 
-                    echo Application files validated successfully.
+                    if not exist index.html (
+                        echo ERROR: index.html is missing
+                        exit /b 1
+                    )
+
+                    if not exist products.html (
+                        echo ERROR: products.html is missing
+                        exit /b 1
+                    )
+
+                    if not exist payment.html (
+                        echo ERROR: payment.html is missing
+                        exit /b 1
+                    )
+
+                    if not exist script.js (
+                        echo ERROR: script.js is missing
+                        exit /b 1
+                    )
+
+                    if not exist payment.js (
+                        echo ERROR: payment.js is missing
+                        exit /b 1
+                    )
+
+                    if not exist Dockerfile (
+                        echo ERROR: Dockerfile is missing
+                        exit /b 1
+                    )
+
+                    if not exist compose.yaml (
+                        echo ERROR: compose.yaml is missing
+                        exit /b 1
+                    )
+
+                    echo All required application files are present.
                 '''
             }
         }
 
-	stage('Docker Environment Diagnostics') {
+        stage('Docker Environment Diagnostics') {
             steps {
-                    bat '''
-                        echo Jenkins Windows identity:
-                        whoami
+                echo 'Checking Jenkins Docker environment'
 
-                        echo Docker executable:
-                        where.exe docker
+                bat '''
+                    @echo off
 
-                        echo Docker environment:
-                        set DOCKER
+                    echo Jenkins service identity:
+                    whoami
 
-                        echo Docker CLI version:
-                        docker --version
-                        
-                       '''
-                    }
-               }
+                    echo Docker CLI:
+                    where.exe docker
+
+                    docker --version
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
 
         stage('Docker Engine Check') {
             steps {
                 echo 'Checking Docker Desktop connectivity'
 
                 bat '''
-                    docker --context %DOCKER_CONTEXT% version
+                    @echo off
+
+                    docker -H %DOCKER_HOST% version
                     if errorlevel 1 exit /b 1
+
+                    echo Docker Engine connection successful.
                 '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building the NEXVION Docker image'
+                echo 'Building NEXVION Docker image'
 
                 bat '''
-                    docker --context %DOCKER_CONTEXT% build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                    @echo off
+
+                    docker -H %DOCKER_HOST% build ^
+                        --pull ^
+                        -t %IMAGE_NAME%:%IMAGE_TAG% .
+
                     if errorlevel 1 exit /b 1
+
+                    echo Docker image build completed.
                 '''
             }
         }
 
         stage('Verify Docker Image') {
             steps {
-                echo 'Verifying the built Docker image'
+                echo 'Verifying the Docker image'
 
                 bat '''
-                    docker --context %DOCKER_CONTEXT% image inspect %IMAGE_NAME%:%IMAGE_TAG%
+                    @echo off
+
+                    docker -H %DOCKER_HOST% image inspect %IMAGE_NAME%:%IMAGE_TAG%
+
                     if errorlevel 1 exit /b 1
+
+                    echo Docker image verification successful.
                 '''
             }
         }
@@ -92,11 +142,13 @@ pipeline {
 
     post {
         success {
-            echo 'NEXVION CI pipeline completed successfully.'
+            echo 'SUCCESS: NEXVION CI pipeline completed.'
+            echo 'Source checkout, validation, Docker connection, image build, and image verification passed.'
         }
 
         failure {
-            echo 'NEXVION CI pipeline failed. Review the stage logs.'
+            echo 'FAILURE: NEXVION CI pipeline failed.'
+            echo 'Inspect the Console Output to identify the failing stage.'
         }
 
         always {
